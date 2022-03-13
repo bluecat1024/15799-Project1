@@ -14,7 +14,7 @@ def task_project1_setup():
     }
 
 def task_project1():
-    def tune_iteration(workload_csv, db_name, db_user, db_pass, timeout):
+    def tune_iteration(workload_csv, db_name, db_user, db_pswd, timeout):
         sample_workload(workload_csv, MAX_SAMPLE_COUNT)
 
     return {
