@@ -53,6 +53,12 @@ def task_project1():
                 "help": "target dbms password",
                 "default": "project1pass",
             },
+            {
+                "name": "timeout",
+                "long": "timeout",
+                "help": "timeout given by grader",
+                "default": "10m",
+            },
         ],
     }
 
