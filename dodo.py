@@ -14,12 +14,13 @@ def task_project1_setup():
     }
 
 def task_project1():
-    def tune_iteration(workload_csv, db_name, db_user, db_pass):
+    def tune_iteration(workload_csv, db_name, db_user, db_pass, timeout):
         sample_workload(workload_csv, MAX_SAMPLE_COUNT)
 
     return {
         # A list of actions. This can be bash or Python callables.
         "actions": [
+            tune_iteration,
             'echo "Faking action generation."',
             'echo "SELECT 1;" > actions.sql',
             'echo "SELECT 2;" >> actions.sql',
