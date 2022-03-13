@@ -4,3 +4,6 @@ artifact/
 .doit.db
 actions.sql
 config.json
+epinions*
+grading/
+sample_workload
