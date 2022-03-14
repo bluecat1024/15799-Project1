@@ -23,7 +23,7 @@ def enumerate_index(conn):
                 for col2 in columns:
                     if col1 == col2:
                         index_candidates.add((table_name, (col1,), index_type))
-                    else:
+                    elif index_type != 'hash':
                         index_candidates.add((table_name, (col1, col2), index_type))
 
     # Substract the candiate set with all existing indexes.
