@@ -20,7 +20,8 @@ def task_project1():
         collected_queries = sample_workload(workload_csv, MAX_SAMPLE_COUNT)
         conn = get_conn('localhost', db_name, db_user, db_pswd)
         # Create hypopg extensions.
-        run_query(conn, 'CREATE EXTENSION IF NOT EXISTS hypopg')
+        conn.cursor().execute('CREATE EXTENSION IF NOT EXISTS hypopg')
+        conn.commit()
         # Get the recommendation of this iteration based on the simplified Dexter and HypoPg.
         index_recommend = recommend_index(collected_queries, conn, timeout)
         with open('actions.sql', 'w') as fw:
