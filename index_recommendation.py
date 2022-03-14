@@ -5,7 +5,8 @@ INDEX_TYPES = ['btree', 'brin', 'hash']
 
 def get_create_index_sql(index_candidate):
     table_name, columns, index_type = index_candidate
-    return f"CREATE INDEX on {table_name} USING {index_type} {columns}"
+    columns_str = f"({', '.join(list(columns))})"
+    return f"CREATE INDEX on {table_name} USING {index_type} {columns_str}"
 
 def enumerate_index(conn):
     table_name_results = run_query(conn, "SELECT tablename FROM pg_catalog.pg_tables where schemaname='public'")
