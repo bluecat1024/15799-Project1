@@ -146,7 +146,7 @@ def drop_index(queries, conn, hypo_dropped_index):
 
     for drop_candidate in drop_candidates:
         # Hypothetically disable the index.
-        run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{drop_candidate}'::reg_class")
+        run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{drop_candidate}'::regclass")
         conn.commit()
 
         total_cost, cost_per_query = get_workload_costs(queries, conn)
@@ -156,14 +156,14 @@ def drop_index(queries, conn, hypo_dropped_index):
             recommendation = drop_candidate
 
         # Enable the index back again.
-        run_query(conn, f"UPDATE pg_index SET indisvalid=true, indisready=true WHERE indexrelid='{drop_candidate}'::reg_class")
+        run_query(conn, f"UPDATE pg_index SET indisvalid=true, indisready=true WHERE indexrelid='{drop_candidate}'::regclass")
         conn.commit()
 
     # Only choose the drop candidate if minimum cost is same or better.
     if minimum_cost <= original_total_cost:
         # Add this to hypothetically drop list.
         hypo_dropped_index.add(recommendation)
-        run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{recommendation}'::reg_class")
+        run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{recommendation}'::regclass")
         conn.commit()
         return [f"DROP INDEX {recommendation};"]
     else:
