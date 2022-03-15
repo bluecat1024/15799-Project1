@@ -2,6 +2,9 @@ from pathlib import Path
 import os
 import time
 
+os.system("sudo apt-get -y install python3-dev libpq-dev")
+os.system("pip3 install psycopg2")
+
 from sample_workload import sample_workload
 from conn_utils import *
 from index_recommendation import recommend_index
