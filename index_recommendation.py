@@ -1,6 +1,6 @@
 from conn_utils import *
 
-IMPROVE_THRESHOLD = 0.1
+IMPROVE_THRESHOLD = 0.05
 INDEX_TYPES = ['btree', 'brin', 'hash']
 
 def get_create_index_sql(index_candidate):
@@ -70,7 +70,7 @@ def get_workload_costs(queries, conn):
 
     return total_cost, cost_per_query
 
-def recommend_index(queries, conn, timeout):
+def recommend_index(queries, conn, hypo_added_index):
     """
     A very simplified Dexter. Brute force enumerate all one and two columns
     indexes not created, including three types.
@@ -79,7 +79,7 @@ def recommend_index(queries, conn, timeout):
     The optimization on total cost or portion of queries should exceed certain threshold.
     Or the recommendation should be empty.
     """
-    index_candiates = enumerate_index(conn)
+    index_candiates = enumerate_index(conn) - hypo_added_index
     # Get initial costs without any hypo indexes.
     original_total_cost, original_cost_per_query = get_workload_costs(queries, conn)
     minimum_cost = original_total_cost
@@ -87,8 +87,9 @@ def recommend_index(queries, conn, timeout):
     new_cost_per_query = None
 
     for index_candidate in index_candiates:
-        run_query(conn, f"select * from hypopg_create_index('{get_create_index_sql(index_candidate)}')")
+        hypo_result = run_query(conn, f"select indexrelid from hypopg_create_index('{get_create_index_sql(index_candidate)}')")
         conn.commit()
+        oid = int(hypo_result[0][0])
 
         total_cost, cost_per_query = get_workload_costs(queries, conn)
         if total_cost < minimum_cost:
@@ -96,8 +97,16 @@ def recommend_index(queries, conn, timeout):
             new_cost_per_query = cost_per_query
             recommendation = index_candidate
 
+        # Remove hypopg index of current index.
+        run_query(conn, f"select * from hypopg_drop_index({oid})")
+        conn.commit()
+
     # If optimization is not significant, recommendation is not used.
     if total_cost < (1.0 - IMPROVE_THRESHOLD) * original_total_cost:
+        # Add this to hypopg, for further invoke in this iteration.
+        hypo_added_index.add(recommendation)
+        run_query(conn, f"select indexrelid from hypopg_create_index('{get_create_index_sql(recommendation)}')")
+        conn.commit()
         return [f"{get_create_index_sql(recommendation)};",]
     else:
         return []

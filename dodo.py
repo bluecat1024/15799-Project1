@@ -1,11 +1,22 @@
 from pathlib import Path
 import os
+import time
 
 from sample_workload import sample_workload
 from conn_utils import *
 from index_recommendation import recommend_index
 
 MAX_SAMPLE_COUNT = 1000
+
+def convert_time(timeout):
+    if timeout[-1].lower() == 's':
+        return int(timeout[:-1])
+    elif timeout[-1].lower() == 'm':
+        return 60 * int(timeout[:-1])
+    elif timeout[-1].lower() == 'h':
+        return 3600 * int(timeout[:-1])
+    else:
+        return int(timeout)
 
 def task_project1_setup():
     return {
@@ -17,15 +28,34 @@ def task_project1_setup():
 
 def task_project1():
     def tune_iteration(workload_csv, db_name, db_user, db_pswd, timeout):
+        # Convert time to correct format.
+        start_ts = time.time()
+        timeout = convert_time(timeout)
+
+        # Collect workload trace.
         collected_queries = sample_workload(workload_csv, MAX_SAMPLE_COUNT)
         conn = get_conn('localhost', db_name, db_user, db_pswd)
         # Create hypopg extensions.
         conn.cursor().execute('CREATE EXTENSION IF NOT EXISTS hypopg')
         conn.commit()
         # Get the recommendation of this iteration based on the simplified Dexter and HypoPg.
-        index_recommend = recommend_index(collected_queries, conn, timeout)
+        add_index_list = []
+        hypo_added_index = set()
+        while True:
+            # If tuning time is quite long, do not continue to add indexes.
+            if time.time() - start_ts > 0.4 * timeout:
+                break
+            index_recommend = recommend_index(collected_queries, conn, hypo_added_index)
+            add_index_list += index_recommend
+            # Also stops if no more to add for current trace.
+            if len(index_recommend) == 0:
+                break
+
+        # Remove any hypothetical configurations at the end.
+        run_query(conn, 'select * from hypopg_reset()')
+        conn.commit()
         with open('actions.sql', 'w') as fw:
-            for index_query in index_recommend:
+            for index_query in add_index_list:
                 fw.write(f"{index_query}\n")
 
 
