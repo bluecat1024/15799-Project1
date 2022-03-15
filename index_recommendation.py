@@ -102,7 +102,7 @@ def recommend_index(queries, conn, hypo_added_index):
         conn.commit()
 
     # If optimization is not significant, recommendation is not used.
-    if total_cost < (1.0 - IMPROVE_THRESHOLD) * original_total_cost:
+    if minimum_cost < (1.0 - IMPROVE_THRESHOLD) * original_total_cost:
         # Add this to hypopg, for further invoke in this iteration.
         hypo_added_index.add(recommendation)
         run_query(conn, f"select indexrelid from hypopg_create_index('{get_create_index_sql(recommendation)}')")
