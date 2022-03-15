@@ -7,7 +7,7 @@ os.system("pip3 install psycopg2")
 
 from sample_workload import sample_workload
 from conn_utils import *
-from index_recommendation import recommend_index
+from index_recommendation import recommend_index, drop_index
 
 MAX_SAMPLE_COUNT = 1000
 
@@ -54,12 +54,27 @@ def task_project1():
             if len(index_recommend) == 0:
                 break
 
+        # Continue to drop useless index.
+        drop_index_list = []
+        hypo_dropped_index = set()
+        while True:
+            # If tuning time is quite long, do not continue to drop indexes.
+            if time.time() - start_ts > 0.8 * timeout:
+                break
+            drop_recommend = drop_index(collected_queries, conn, hypo_dropped_index)
+            drop_index_list += drop_recommend
+            # Also stops if no more to drop for current trace.
+            if len(drop_recommend) == 0:
+                break
+
         # Remove any hypothetical configurations at the end.
         run_query(conn, 'select * from hypopg_reset()')
         conn.commit()
         with open('actions.sql', 'w') as fw:
             for index_query in add_index_list:
                 fw.write(f"{index_query}\n")
+            for drop_query in drop_index_list:
+                fw.write(f"{drop_query}\n")
 
 
     return {

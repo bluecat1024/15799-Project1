@@ -9,6 +9,10 @@ def get_create_index_sql(index_candidate):
     return f"CREATE INDEX on {table_name} USING {index_type} {columns_str}"
 
 def enumerate_index(conn):
+    """
+    Get all candidate indexes that can be added.
+    Only enumerate 1-column and 2-columns.
+    """
     table_name_results = run_query(conn, "SELECT tablename FROM pg_catalog.pg_tables where schemaname='public'")
     table_names = [tup[0] for tup in table_name_results]
 
@@ -47,6 +51,22 @@ def enumerate_index(conn):
         exist_indexes.add((table_name, tuple(index_cols), index_type))
         
     return index_candidates - exist_indexes
+
+def enumerate_droppables(conn):
+    """
+    Return all droppable index names.
+    The indexes are without unique or other constraints.
+    """
+    index_name_result = run_query(conn, """
+    SELECT s.indexrelname AS indexname FROM 
+    pg_catalog.pg_stat_user_indexes s JOIN 
+    pg_catalog.pg_index i ON s.indexrelid = i.indexrelid 
+    WHERE NOT i.indisunique AND Not EXISTS (SELECT 1 FROM 
+    pg_catalog.pg_constraint c WHERE c.conindid = s.indexrelid) 
+    and s.schemaname='public'
+    """)
+
+    return set([tup[0] for tup in index_name_result])
 
 def get_workload_costs(queries, conn):
     """
@@ -110,3 +130,43 @@ def recommend_index(queries, conn, hypo_added_index):
         return [f"{get_create_index_sql(recommendation)};",]
     else:
         return []
+
+def drop_index(queries, conn, hypo_dropped_index):
+    """
+    My implementation not only supports adding index,
+    but also supports dropping index. Like dexter,
+    but simpler than hypopg, just set booleans to disable
+    indexes, to hypothetically drop the indexes.
+    """
+    drop_candidates = enumerate_droppables(conn) - hypo_dropped_index
+    original_total_cost, original_cost_per_query = get_workload_costs(queries, conn)
+    minimum_cost = original_total_cost + 1.0
+    recommendation = None
+    new_cost_per_query = None
+
+    for drop_candidate in drop_candidates:
+        # Hypothetically disable the index.
+        run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{drop_candidate}'::reg_class")
+        conn.commit()
+
+        total_cost, cost_per_query = get_workload_costs(queries, conn)
+        if total_cost < minimum_cost:
+            minimum_cost = total_cost
+            new_cost_per_query = cost_per_query
+            recommendation = drop_candidate
+
+        # Enable the index back again.
+        run_query(conn, f"UPDATE pg_index SET indisvalid=true, indisready=true WHERE indexrelid='{drop_candidate}'::reg_class")
+        conn.commit()
+
+    # Only choose the drop candidate if minimum cost is same or better.
+    if minimum_cost <= original_total_cost:
+        # Add this to hypothetically drop list.
+        hypo_dropped_index.add(recommendation)
+        run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{recommendation}'::reg_class")
+        conn.commit()
+        return [f"DROP INDEX {recommendation};"]
+    else:
+        return []
+
+
