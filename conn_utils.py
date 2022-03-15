@@ -12,7 +12,9 @@ def get_conn(host, dbname, user, password):
 def run_query(conn, query):
     assert conn is not None
     global cursor
-    is_select = query.lower().strip().startswith("select")
+    is_select = query.lower().strip().startswith("select")\
+        or query.lower().strip().startswith("explain")\
+        or query.lower().strip().startswith("show")
     try:
         cursor.execute(query)
         if is_select:
