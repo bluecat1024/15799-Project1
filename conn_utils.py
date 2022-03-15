@@ -12,12 +12,21 @@ def get_conn(host, dbname, user, password):
 def run_query(conn, query):
     assert conn is not None
     global cursor
+    is_select = query.lower().strip().startswith("select")
     try:
         cursor.execute(query)
-        return cursor.fetchall()
+        if is_select:
+            return cursor.fetchall()
+        else:
+            conn.commit()
+            return None
     except:
         # Throw exceptions if on error again.
         conn.reset()
         cursor = conn.cursor()
         cursor.execute(query)
-        return cursor.fetchall()
+        if is_select:
+            return cursor.fetchall()
+        else:
+            conn.commit()
+            return None
