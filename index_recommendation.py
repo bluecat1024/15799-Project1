@@ -8,19 +8,30 @@ def get_create_index_sql(index_candidate):
     columns_str = f"({', '.join(list(columns))})"
     return f"CREATE INDEX on {table_name} USING {index_type} {columns_str}"
 
-def enumerate_index(conn):
+def enumerate_index(conn, queries):
     """
     Get all candidate indexes that can be added.
-    Only enumerate 1-column and 2-columns.
+    Only enumerate up to 3 columns.
     """
     table_name_results = run_query(conn, "SELECT tablename FROM pg_catalog.pg_tables where schemaname='public'")
     table_names = [tup[0] for tup in table_name_results]
 
-    # Brute-force enumerate all 1 and 2-column indexes firstly.
+    # Firstly filter by column usage in queries, then enumerate to up to 3 columns.
     index_candidates = set()
     for table_name in table_names:
         column_results = run_query(conn, f"SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'")
-        columns = [tup[0] for tup in column_results]
+        columns = []
+        for tup in column_results:
+            col_name = tup[0]
+            # Use very conservative way so we determine the column not used in workloads.
+            found_in_query = False
+            for q in queries:
+                # If the two words co-appear then cannot filter.
+                if q.find(table_name) >= 0 and q.find(col_name) >= 0:
+                    found_in_query = True
+                    break
+            if found_in_query:
+                columns.append(col_name)
 
         for index_type in INDEX_TYPES:
             for col1 in columns:
@@ -29,6 +40,15 @@ def enumerate_index(conn):
                         index_candidates.add((table_name, (col1,), index_type))
                     elif index_type != 'hash':
                         index_candidates.add((table_name, (col1, col2), index_type))
+
+            # Enumerate 3 columns.
+            for col1 in columns:
+                for col2 in columns:
+                    for col3 in columns:
+                        if col1 == col2 or col2 == col3\
+                            or col1 == col3 or index_type == 'hash':
+                            continue
+                        index_candidates.add((table_name, (col1, col2, col3), index_type))
 
     # Substract the candiate set with all existing indexes.
     exist_indexes = set()
@@ -92,14 +112,14 @@ def get_workload_costs(queries, conn):
 
 def recommend_index(queries, conn, hypo_added_index):
     """
-    A very simplified Dexter. Brute force enumerate all one and two columns
+    A very simplified Dexter. Enumerate all up to 3 columns used by queries.
     indexes not created, including three types.
     For each one, call hypopg to create fake index and explain all queries.
     Select the one causing smallest cumulatative cost.
     The optimization on total cost or portion of queries should exceed certain threshold.
     Or the recommendation should be empty.
     """
-    index_candiates = enumerate_index(conn) - hypo_added_index
+    index_candiates = enumerate_index(conn, queries) - hypo_added_index
     # Get initial costs without any hypo indexes.
     original_total_cost, original_cost_per_query = get_workload_costs(queries, conn)
     minimum_cost = original_total_cost
