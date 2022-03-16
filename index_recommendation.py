@@ -162,6 +162,7 @@ def recommend_index(queries, conn, hypo_added_index):
         run_query(conn, f"select * from hypopg_drop_index({oid})")
         conn.commit()
 
+    # See if the index causes good performance on some query templates.
     is_significant_query_template = False
     for idx in range(len(original_cost_per_query)):
         if new_cost_per_query[idx] <= PER_QUERY_THRESHOLD * original_cost_per_query[idx]:
@@ -203,8 +204,15 @@ def drop_index(queries, conn, hypo_dropped_index):
         # Enable the index back again.
         run_query(conn, f"UPDATE pg_index SET indisvalid=true, indisready=true WHERE indexrelid='{drop_candidate}'::regclass")
 
+    # See if the best drop index does not cause spurious degrade on some query templates.
+    is_significant_query_template = False
+    for idx in range(len(original_cost_per_query)):
+        if new_cost_per_query[idx] * PER_QUERY_THRESHOLD >= original_cost_per_query[idx]:
+            is_significant_query_template = True
+
     # Only choose the drop candidate if minimum cost is same or better.
-    if minimum_cost <= original_total_cost:
+    # Not causing spurious degrade on some queries.
+    if minimum_cost <= original_total_cost and not is_significant_query_template:
         # Add this to hypothetically drop list.
         hypo_dropped_index.add(recommendation)
         run_query(conn, f"UPDATE pg_index SET indisvalid=false, indisready=false WHERE indexrelid='{recommendation}'::regclass")
