@@ -39,7 +39,16 @@ def enumerate_index(conn, queries):
                     if col1 == col2:
                         index_candidates.add((table_name, (col1,), index_type))
                     elif index_type != 'hash':
-                        index_candidates.add((table_name, (col1, col2), index_type))
+                        # All the names must co-appear in one query to be considered.
+                        found_multi_in_query = False
+                        for q in queries:
+                            if q.find(table_name) >= 0\
+                                and q.find(col1) >= 0\
+                                and q.find(col2) >= 0:
+                                found_multi_in_query = True
+                                break
+                        if found_multi_in_query:
+                            index_candidates.add((table_name, (col1, col2), index_type))
 
             # Enumerate 3 columns.
             for col1 in columns:
@@ -48,7 +57,18 @@ def enumerate_index(conn, queries):
                         if col1 == col2 or col2 == col3\
                             or col1 == col3 or index_type == 'hash':
                             continue
-                        index_candidates.add((table_name, (col1, col2, col3), index_type))
+
+                        # All the names must co-appear in one query to be considered.
+                        found_multi_in_query = False
+                        for q in queries:
+                            if q.find(table_name) >= 0\
+                                and q.find(col1) >= 0\
+                                and q.find(col2) >= 0\
+                                and q.find(col3) >= 0:
+                                found_multi_in_query = True
+                                break
+                        if found_multi_in_query:
+                            index_candidates.add((table_name, (col1, col2, col3), index_type))
 
     # Substract the candiate set with all existing indexes.
     exist_indexes = set()
