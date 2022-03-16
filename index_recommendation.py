@@ -1,6 +1,7 @@
 from conn_utils import *
 
-IMPROVE_THRESHOLD = 0.2
+IMPROVE_THRESHOLD = 0.1
+PER_QUERY_THRESHOLD = 0.5
 INDEX_TYPES = ['btree', 'brin', 'hash']
 
 def get_create_index_sql(index_candidate):
@@ -161,8 +162,13 @@ def recommend_index(queries, conn, hypo_added_index):
         run_query(conn, f"select * from hypopg_drop_index({oid})")
         conn.commit()
 
+    is_significant_query_template = False
+    for idx in range(len(original_cost_per_query)):
+        if new_cost_per_query[idx] <= PER_QUERY_THRESHOLD * original_cost_per_query[idx]:
+            is_significant_query_template = True
     # If optimization is not significant, recommendation is not used.
-    if minimum_cost < (1.0 - IMPROVE_THRESHOLD) * original_total_cost:
+    if minimum_cost < (1.0 - IMPROVE_THRESHOLD) * original_total_cost\
+        or (is_significant_query_template and minimum_cost < original_total_cost):
         # Add this to hypopg, for further invoke in this iteration.
         hypo_added_index.add(recommendation)
         run_query(conn, f"select indexrelid from hypopg_create_index('{get_create_index_sql(recommendation)}')")
