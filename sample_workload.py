@@ -27,7 +27,7 @@ def sample_workload(workload_csv, sample_count):
             elif is_in_txn and not statement.startswith('SET'):
                 collected_queries.append(statement)
 
-    collected_queries = sample(collected_queries, sample_count)
+    collected_queries = sample(collected_queries, min(sample_count, len(collected_queries)))
     with open('sample_workload', 'w') as fw:
         for q in collected_queries:
             fw.write(f"{q}\n")
