@@ -57,7 +57,7 @@ def task_project1():
         drop_index_list = []
         hypo_dropped_index = set()
         # Only try to drop indexes when no more to add in this iteration.
-        while len(add_index_list) == 0:
+        while True:
             # If tuning time is quite long, do not continue to drop indexes.
             if time.time() - start_ts > 0.7 * timeout:
                 break

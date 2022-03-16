@@ -1,6 +1,6 @@
 from conn_utils import *
 
-IMPROVE_THRESHOLD = 0.05
+IMPROVE_THRESHOLD = 0.2
 INDEX_TYPES = ['btree', 'brin', 'hash']
 
 def get_create_index_sql(index_candidate):
