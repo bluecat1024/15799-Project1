@@ -45,7 +45,7 @@ def task_project1():
         hypo_added_index = set()
         while True:
             # If tuning time is quite long, do not continue to add indexes.
-            if time.time() - start_ts > 0.4 * timeout:
+            if time.time() - start_ts > 0.7 * timeout:
                 break
             index_recommend = recommend_index(collected_queries, conn, hypo_added_index)
             add_index_list += index_recommend
@@ -56,9 +56,10 @@ def task_project1():
         # Continue to drop useless index.
         drop_index_list = []
         hypo_dropped_index = set()
-        while True:
+        # Only try to drop indexes when no more to add in this iteration.
+        while len(add_index_list) == 0:
             # If tuning time is quite long, do not continue to drop indexes.
-            if time.time() - start_ts > 0.8 * timeout:
+            if time.time() - start_ts > 0.7 * timeout:
                 break
             drop_recommend = drop_index(collected_queries, conn, hypo_dropped_index)
             drop_index_list += drop_recommend
