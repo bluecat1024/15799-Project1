@@ -145,7 +145,7 @@ def recommend_index(queries, conn, hypo_added_index):
     original_total_cost, original_cost_per_query = get_workload_costs(queries, conn)
     minimum_cost = original_total_cost
     recommendation = None
-    new_cost_per_query = None
+    new_cost_per_query = original_cost_per_query
 
     for index_candidate in index_candiates:
         hypo_result = run_query(conn, f"select indexrelid from hypopg_create_index('{get_create_index_sql(index_candidate)}')")
@@ -189,7 +189,7 @@ def drop_index(queries, conn, hypo_dropped_index):
     original_total_cost, original_cost_per_query = get_workload_costs(queries, conn)
     minimum_cost = original_total_cost + 1.0
     recommendation = None
-    new_cost_per_query = None
+    new_cost_per_query = original_cost_per_query
 
     for drop_candidate in drop_candidates:
         # Hypothetically disable the index.
